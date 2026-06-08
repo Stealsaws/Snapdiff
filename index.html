@@ -1,0 +1,1122 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SnapDiff — เล่าเรื่องความเปลี่ยนแปลง</title>
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Noto+Sans+Thai:wght@300;400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg: #0a0a0b;
+  --surface: #111214;
+  --surface2: #18191d;
+  --border: #222428;
+  --border2: #2e3038;
+  --accent: #f5602b;
+  --accent2: #ff8c5a;
+  --text: #ede9e1;
+  --muted: #5a5855;
+  --muted2: #7a7774;
+  --success: #3dba78;
+  --display: 'Bebas Neue', sans-serif;
+  --body: 'Noto Sans Thai', sans-serif;
+  --mono: 'IBM Plex Mono', monospace;
+}
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+html { scroll-behavior: smooth; }
+body { background: var(--bg); color: var(--text); font-family: var(--body); overflow-x: hidden; }
+
+body::before {
+  content: '';
+  position: fixed; inset: 0;
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.04'/%3E%3C/svg%3E");
+  pointer-events: none; z-index: 9999; opacity: 0.35;
+}
+
+/* NAV */
+nav {
+  position: fixed; top: 0; left: 0; right: 0; z-index: 200;
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 1.1rem 2.5rem;
+  transition: all 0.3s;
+}
+nav.scrolled { background: rgba(10,10,11,0.94); border-bottom: 1px solid var(--border); backdrop-filter: blur(14px); }
+.nav-logo { font-family: var(--display); font-size: 1.5rem; letter-spacing: 0.06em; }
+.nav-logo span { color: var(--accent); }
+.nav-links { display: flex; gap: 2rem; align-items: center; }
+.nav-links a { font-size: 0.8rem; color: var(--muted2); text-decoration: none; letter-spacing: 0.05em; transition: color 0.2s; }
+.nav-links a:hover { color: var(--text); }
+.nav-cta { background: var(--accent); color: #fff !important; padding: 0.42rem 1.1rem; border-radius: 4px; font-weight: 500; }
+.nav-cta:hover { background: var(--accent2) !important; }
+
+/* HERO */
+.hero {
+  min-height: 100vh; display: flex; flex-direction: column;
+  align-items: center; justify-content: center;
+  padding: 7rem 2rem 5rem; position: relative; overflow: hidden; text-align: center;
+}
+.hero-glow {
+  position: absolute; width: 700px; height: 700px; border-radius: 50%;
+  background: radial-gradient(circle, rgba(245,96,43,0.1) 0%, transparent 70%);
+  top: 40%; left: 50%; transform: translate(-50%,-60%); pointer-events: none;
+}
+.hero-tag {
+  font-family: var(--mono); font-size: 0.66rem; letter-spacing: 0.2em; color: var(--accent);
+  border: 1px solid rgba(245,96,43,0.3); padding: 4px 14px; border-radius: 999px;
+  margin-bottom: 1.5rem; animation: fadeUp 0.6s ease both;
+}
+.hero h1 {
+  font-family: var(--display); font-size: clamp(3.8rem,10vw,8rem);
+  letter-spacing: 0.04em; line-height: 0.92;
+  animation: fadeUp 0.7s 0.1s ease both;
+}
+.hero h1 .accent { color: var(--accent); }
+.hero-sub {
+  font-size: clamp(0.88rem,2vw,1rem); color: var(--muted2);
+  max-width: 460px; line-height: 1.85; margin-top: 1.5rem; font-weight: 300;
+  animation: fadeUp 0.7s 0.2s ease both;
+}
+.hero-btns {
+  display: flex; gap: 1rem; margin-top: 2.5rem; flex-wrap: wrap; justify-content: center;
+  animation: fadeUp 0.7s 0.3s ease both;
+}
+.btn-primary {
+  background: var(--accent); color: #fff; border: none;
+  padding: 0.78rem 1.9rem; border-radius: 5px; font-family: var(--body);
+  font-size: 0.92rem; font-weight: 500; cursor: pointer; transition: all 0.2s;
+  text-decoration: none; display: inline-flex; align-items: center; gap: 0.4rem;
+}
+.btn-primary:hover { background: var(--accent2); transform: translateY(-1px); box-shadow: 0 8px 24px rgba(245,96,43,0.25); }
+.btn-secondary {
+  background: transparent; color: var(--muted2); border: 1px solid var(--border2);
+  padding: 0.78rem 1.9rem; border-radius: 5px; font-family: var(--body);
+  font-size: 0.92rem; cursor: pointer; transition: all 0.2s; text-decoration: none;
+}
+.btn-secondary:hover { border-color: var(--muted); color: var(--text); }
+.hero-scroll {
+  position: absolute; bottom: 2rem;
+  display: flex; flex-direction: column; align-items: center; gap: 0.5rem;
+  animation: fadeUp 1s 0.7s ease both;
+}
+.hero-scroll span { font-size: 0.66rem; color: var(--muted); letter-spacing: 0.18em; font-family: var(--mono); }
+.scroll-line { width: 1px; height: 36px; background: linear-gradient(to bottom, var(--accent), transparent); animation: scrollPulse 2s infinite; }
+
+/* FEATURES */
+.features { padding: 6rem 2rem; max-width: 1100px; margin: 0 auto; }
+.section-eyebrow { font-family: var(--mono); font-size: 0.66rem; letter-spacing: 0.18em; color: var(--accent); margin-bottom: 0.65rem; }
+.section-title { font-family: var(--display); font-size: clamp(2.4rem,6vw,4.2rem); letter-spacing: 0.04em; line-height: 1; margin-bottom: 3rem; }
+.section-title em { color: var(--accent); font-style: normal; }
+.feat-grid { display: grid; grid-template-columns: repeat(3,1fr); gap: 1px; background: var(--border); border: 1px solid var(--border); border-radius: 10px; overflow: hidden; }
+.feat-cell { background: var(--surface); padding: 1.85rem 1.6rem; transition: background 0.25s; position: relative; overflow: hidden; }
+.feat-cell::after { content: ''; position: absolute; bottom: 0; left: 0; width: 0; height: 2px; background: var(--accent); transition: width 0.35s ease; }
+.feat-cell:hover { background: var(--surface2); }
+.feat-cell:hover::after { width: 100%; }
+.feat-num { font-family: var(--display); font-size: 2.8rem; color: var(--border2); line-height: 1; margin-bottom: 0.9rem; transition: color 0.25s; }
+.feat-cell:hover .feat-num { color: var(--accent); }
+.feat-title { font-size: 0.95rem; font-weight: 600; margin-bottom: 0.5rem; }
+.feat-desc { font-size: 0.8rem; color: var(--muted2); line-height: 1.7; font-weight: 300; }
+
+/* PROJECT FOLDER SYSTEM */
+.projects-bar{display:flex;align-items:center;justify-content:space-between;padding:0.75rem 1.25rem;border-bottom:1px solid var(--border);background:var(--bg);gap:0.75rem;flex-wrap:wrap}
+.projects-bar-left{display:flex;align-items:center;gap:0.5rem;flex:1;min-width:0;overflow-x:auto;padding-bottom:2px}
+.proj-chip{display:inline-flex;align-items:center;gap:0.35rem;padding:0.3rem 0.7rem;border-radius:5px;font-size:0.72rem;font-family:var(--mono);border:1px solid var(--border);background:var(--surface2);color:var(--muted2);cursor:pointer;white-space:nowrap;transition:all 0.15s;flex-shrink:0}
+.proj-chip:hover{border-color:var(--border2);color:var(--text)}
+.proj-chip.active{border-color:var(--accent);color:var(--accent);background:rgba(245,96,43,0.08)}
+.proj-chip .proj-count{font-size:0.62rem;opacity:0.55}
+.proj-del{background:none;border:none;color:var(--muted);cursor:pointer;font-size:0.65rem;padding:0 1px;line-height:1;transition:color 0.15s}
+.proj-del:hover{color:#e05555}
+.proj-new-btn{display:inline-flex;align-items:center;gap:0.3rem;padding:0.3rem 0.7rem;border-radius:5px;font-size:0.72rem;font-family:var(--mono);border:1px dashed var(--border2);background:transparent;color:var(--muted);cursor:pointer;white-space:nowrap;transition:all 0.15s;flex-shrink:0}
+.proj-new-btn:hover{border-color:var(--accent);color:var(--accent)}
+.new-proj-row{display:none;align-items:center;gap:0.5rem;padding:0.6rem 1.25rem;border-bottom:1px solid var(--border);background:var(--surface2)}
+.new-proj-row.open{display:flex}
+.new-proj-input{flex:1;background:var(--bg);border:1px solid var(--border2);border-radius:5px;padding:0.36rem 0.65rem;color:var(--text);font-family:var(--body);font-size:0.82rem;outline:none}
+.new-proj-input:focus{border-color:var(--accent)}
+.new-proj-ok{background:var(--accent);border:none;color:#fff;border-radius:5px;padding:0.36rem 0.9rem;font-size:0.82rem;cursor:pointer;transition:background 0.15s}
+.new-proj-ok:hover{background:var(--accent2)}
+.new-proj-cancel{background:none;border:none;color:var(--muted);cursor:pointer;font-size:0.82rem}
+.session-gallery{display:grid;grid-template-columns:repeat(auto-fill,minmax(100px,1fr));gap:0.55rem;padding:1rem 1.25rem 0.5rem}
+.session-thumb{border-radius:7px;overflow:hidden;aspect-ratio:4/3;position:relative;background:var(--surface2);border:1px solid var(--border);cursor:pointer;transition:border-color 0.15s,transform 0.15s}
+.session-thumb:hover{border-color:var(--accent);transform:scale(1.03)}
+.session-thumb.sel{border-color:var(--accent);box-shadow:0 0 0 2px rgba(245,96,43,0.3)}
+.session-thumb img{width:100%;height:100%;object-fit:cover;display:block}
+.s-foot{position:absolute;bottom:0;left:0;right:0;padding:0.2rem 0.35rem;background:linear-gradient(to top,rgba(0,0,0,0.82),transparent);font-size:0.58rem;font-family:var(--mono);color:#fff;display:flex;justify-content:space-between;align-items:flex-end}
+.s-badge{font-size:0.52rem;padding:1px 5px;border-radius:2px;font-family:var(--mono)}
+.sb-b{background:rgba(0,0,0,0.7);color:#aaa;border:1px solid rgba(255,255,255,0.15)}
+.sb-a{background:var(--accent);color:#fff}
+.sess-add{border-radius:7px;aspect-ratio:4/3;border:1px dashed var(--border2);background:transparent;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:0.25rem;cursor:pointer;color:var(--muted);transition:all 0.15s;font-size:1.2rem}
+.sess-add:hover{border-color:var(--accent);color:var(--accent)}
+.sess-add span{font-size:0.62rem}
+.gallery-actions{padding:0.65rem 1.25rem;display:flex;gap:0.55rem;align-items:center;flex-wrap:wrap;border-top:1px solid var(--border)}
+.gallery-hint{font-size:0.7rem;color:var(--muted);margin-left:auto;font-family:var(--mono)}
+.proj-empty{padding:2.5rem 1.25rem;text-align:center;color:var(--muted);font-size:0.82rem}
+.proj-empty p{margin-top:0.35rem;font-size:0.72rem;opacity:0.6}
+
+/* APP SECTION */
+.app-section { padding: 4rem 2rem 6rem; max-width: 920px; margin: 0 auto; }
+.app-card { background: var(--surface); border: 1px solid var(--border); border-radius: 14px; overflow: hidden; }
+.app-tabs { display: flex; border-bottom: 1px solid var(--border); background: var(--bg); }
+.app-tab {
+  padding: 0.9rem 1.4rem; font-size: 0.78rem; color: var(--muted); cursor: pointer;
+  border-bottom: 2px solid transparent; transition: all 0.2s;
+  font-family: var(--mono); letter-spacing: 0.04em; user-select: none;
+}
+.app-tab:hover { color: var(--text); }
+.app-tab.active { color: var(--accent); border-bottom-color: var(--accent); }
+.tab-panel { display: none; }
+.tab-panel.active { display: block; }
+
+/* ── UPLOAD PANEL ── */
+.upload-area { padding: 2rem; }
+.upload-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1.25rem;
+  grid-auto-rows: 260px;
+}
+
+.slot-wrap {
+  border-radius: 10px; overflow: hidden;
+  position: relative;
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  transition: border-color 0.2s;
+  height: 100%;
+  min-height: 260px;
+}
+.slot-wrap:hover { border-color: var(--accent); }
+
+/* Image fills slot — contain keeps full image visible, no crop */
+.slot-img {
+  position: absolute; inset: 0;
+  width: 100%; height: 100%;
+  object-fit: contain;
+  display: none;
+}
+
+/* Placeholder overlay */
+.slot-placeholder {
+  position: absolute; inset: 0;
+  display: flex; flex-direction: column;
+  align-items: center; justify-content: center; gap: 0.4rem;
+  color: var(--muted); cursor: pointer;
+  transition: opacity 0.2s;
+}
+.slot-placeholder .ph-icon { font-size: 2rem; opacity: 0.5; }
+.slot-placeholder .ph-text { font-size: 0.75rem; }
+
+/* Label bar at bottom of slot */
+.slot-footer {
+  position: absolute; bottom: 0; left: 0; right: 0;
+  padding: 0.55rem 0.75rem; z-index: 3;
+  display: flex; align-items: center; justify-content: space-between;
+  background: linear-gradient(to top, rgba(0,0,0,0.75) 0%, transparent 100%);
+}
+.slot-badge {
+  font-family: var(--mono); font-size: 0.62rem; font-weight: 500;
+  letter-spacing: 0.12em; padding: 3px 10px; border-radius: 3px;
+}
+.badge-before { background: rgba(10,10,11,0.7); color: #aaa; border: 1px solid rgba(255,255,255,0.12); }
+.badge-after  { background: var(--accent); color: #fff; }
+
+.slot-actions { display: flex; gap: 0.4rem; }
+.slot-btn {
+  width: 28px; height: 28px; border-radius: 5px; border: none;
+  background: rgba(255,255,255,0.1); color: #fff;
+  display: flex; align-items: center; justify-content: center;
+  cursor: pointer; font-size: 0.8rem; transition: background 0.15s;
+  backdrop-filter: blur(4px);
+}
+.slot-btn:hover { background: rgba(255,255,255,0.2); }
+.slot-btn.cam { background: rgba(245,96,43,0.7); }
+.slot-btn.cam:hover { background: var(--accent); }
+
+.slot-input { position: absolute; inset: 0; opacity: 0; cursor: pointer; z-index: 2; }
+
+.upload-actions { margin-top: 1.25rem; display: flex; gap: 0.75rem; justify-content: center; flex-wrap: wrap; }
+
+/* ── CAMERA MODAL ── */
+.modal-overlay {
+  position: fixed; inset: 0; z-index: 500;
+  background: rgba(0,0,0,0.92);
+  display: flex; align-items: center; justify-content: center;
+  opacity: 0; pointer-events: none; transition: opacity 0.25s;
+}
+.modal-overlay.open { opacity: 1; pointer-events: all; }
+.modal-box {
+  background: var(--surface); border: 1px solid var(--border2);
+  border-radius: 14px; overflow: hidden;
+  width: min(480px, 96vw);
+  transform: translateY(16px); transition: transform 0.25s;
+}
+.modal-overlay.open .modal-box { transform: translateY(0); }
+.modal-header {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 0.9rem 1.25rem;
+  border-bottom: 1px solid var(--border);
+}
+.modal-title { font-family: var(--mono); font-size: 0.75rem; letter-spacing: 0.1em; color: var(--accent); }
+.modal-close { background: none; border: none; color: var(--muted); font-size: 1.2rem; cursor: pointer; line-height: 1; }
+.modal-close:hover { color: var(--text); }
+
+.cam-video-wrap { position: relative; background: #000; aspect-ratio: 4/3; width: 100%; }
+#cam-video { width: 100%; height: 100%; object-fit: cover; display: block; }
+.cam-overlay-img {
+  position: absolute; inset: 0; width: 100%; height: 100%;
+  object-fit: cover; display: none;
+}
+.cam-ghost { opacity: 0.4; }
+
+.cam-toolbar {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 1rem 1.25rem;
+  background: var(--surface2);
+  border-top: 1px solid var(--border);
+}
+.cam-ghost-ctrl { display: flex; align-items: center; gap: 0.6rem; }
+.cam-ghost-ctrl label { font-size: 0.72rem; color: var(--muted); font-family: var(--mono); white-space: nowrap; }
+#ghost-slider { width: 90px; accent-color: var(--accent); cursor: pointer; }
+.cam-shutter {
+  width: 58px; height: 58px; border-radius: 50%;
+  border: 3px solid var(--accent);
+  background: rgba(245,96,43,0.15);
+  display: flex; align-items: center; justify-content: center;
+  cursor: pointer; transition: all 0.15s; position: relative;
+}
+.cam-shutter::after {
+  content: ''; width: 42px; height: 42px; border-radius: 50%;
+  background: var(--accent); display: block; transition: transform 0.1s;
+}
+.cam-shutter:hover::after { transform: scale(0.9); }
+.cam-shutter:active::after { transform: scale(0.8); }
+.cam-switch-btn {
+  background: var(--surface); border: 1px solid var(--border2);
+  color: var(--muted2); border-radius: 8px; padding: 0.4rem 0.8rem;
+  font-size: 0.75rem; cursor: pointer; font-family: var(--mono);
+  transition: all 0.15s; white-space: nowrap;
+}
+.cam-switch-btn:hover { border-color: var(--accent); color: var(--accent); }
+#cam-status { font-family: var(--mono); font-size: 0.68rem; color: var(--muted); padding: 0.5rem 1.25rem; text-align: center; min-height: 24px; }
+
+/* ── EXPORT PANEL ── */
+.export-area { padding: 1.75rem 2rem; }
+.export-label { font-family: var(--mono); font-size: 0.66rem; color: var(--muted); letter-spacing: 0.12em; margin-bottom: 0.65rem; }
+.template-grid { display: grid; grid-template-columns: repeat(3,1fr); gap: 0.65rem; margin-bottom: 1.5rem; }
+.template-opt {
+  border: 1px solid var(--border); border-radius: 7px; padding: 0.7rem;
+  cursor: pointer; text-align: center; transition: all 0.2s; user-select: none;
+}
+.template-opt:hover { border-color: var(--border2); }
+.template-opt.selected { border-color: var(--accent); background: rgba(245,96,43,0.06); }
+.template-preview { height: 44px; border-radius: 4px; overflow: hidden; display: flex; gap: 2px; margin-bottom: 0.4rem; background: var(--surface2); }
+.tp-half { flex: 1; background: var(--border2); border-radius: 2px; }
+.tp-accent { flex: 1; background: rgba(245,96,43,0.3); border-radius: 2px; }
+.tp-sm { flex: none; width: 38%; background: var(--border2); border-radius: 2px; }
+.tp-lg { flex: 1; background: rgba(245,96,43,0.3); border-radius: 2px; }
+.tp-col { flex-direction: column; }
+.template-name { font-size: 0.68rem; color: var(--muted2); font-family: var(--mono); }
+.export-opts { display: grid; grid-template-columns: 1fr 1fr; gap: 0.9rem; margin-bottom: 1.5rem; }
+.opt-group label { display: block; font-size: 0.68rem; color: var(--muted); font-family: var(--mono); margin-bottom: 0.35rem; }
+.opt-group input, .opt-group select {
+  width: 100%; background: var(--surface2); border: 1px solid var(--border);
+  border-radius: 5px; padding: 0.42rem 0.6rem; color: var(--text);
+  font-family: var(--body); font-size: 0.82rem; outline: none; transition: border-color 0.2s;
+}
+.opt-group input:focus, .opt-group select:focus { border-color: var(--accent); }
+
+/* ── PREVIEW PANEL ── */
+.preview-area { padding: 1.75rem 2rem; }
+#canvas-wrap {
+  border: 1px solid var(--border); border-radius: 8px; overflow: hidden;
+  margin-bottom: 1.25rem; background: #0e0e0f;
+  min-height: 180px; display: flex; align-items: center; justify-content: center;
+}
+canvas { max-width: 100%; height: auto; display: block; }
+.empty-canvas { text-align: center; padding: 3rem 2rem; }
+.empty-canvas p { font-size: 0.82rem; color: var(--muted); margin-top: 0.5rem; }
+.preview-actions { display: flex; gap: 0.75rem; justify-content: center; flex-wrap: wrap; }
+
+/* HOW */
+.how-section { padding: 5rem 2rem; max-width: 1100px; margin: 0 auto; }
+.steps { display: grid; grid-template-columns: repeat(3,1fr); gap: 2rem; margin-top: 3rem; }
+.step { position: relative; }
+.step-num { font-family: var(--display); font-size: 4.5rem; color: var(--border2); line-height: 1; margin-bottom: 0.65rem; }
+.step-title { font-size: 1rem; font-weight: 600; margin-bottom: 0.4rem; }
+.step-desc { font-size: 0.8rem; color: var(--muted2); line-height: 1.75; font-weight: 300; }
+
+/* PRICING */
+.pricing-section { padding: 5rem 2rem; max-width: 780px; margin: 0 auto; text-align: center; }
+.pricing-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 1.25rem; margin-top: 3rem; }
+.price-card { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 1.75rem 1.5rem; text-align: left; position: relative; }
+.price-card.featured { border-color: var(--accent); }
+.price-featured-tag {
+  position: absolute; top: -0.7rem; left: 50%; transform: translateX(-50%);
+  background: var(--accent); color: #fff; font-size: 0.66rem; font-family: var(--mono);
+  padding: 3px 12px; border-radius: 999px; white-space: nowrap;
+}
+.price-label { font-family: var(--mono); font-size: 0.66rem; color: var(--muted); letter-spacing: 0.15em; margin-bottom: 0.65rem; }
+.price-val { font-family: var(--display); font-size: 2.8rem; letter-spacing: 0.04em; line-height: 1; margin-bottom: 0.2rem; }
+.price-val span { font-family: var(--body); font-size: 0.85rem; color: var(--muted); margin-left: 3px; font-weight: 300; }
+.price-items { margin: 1.25rem 0; list-style: none; }
+.price-items li { font-size: 0.8rem; color: var(--muted2); padding: 0.38rem 0; border-bottom: 1px solid var(--border); display: flex; align-items: center; gap: 0.5rem; }
+.price-items li:last-child { border-bottom: none; }
+.price-items li::before { content: '—'; color: var(--border2); font-family: var(--mono); font-size: 0.72rem; flex-shrink: 0; }
+.price-items li.ok::before { content: '✓'; color: var(--success); }
+
+footer { border-top: 1px solid var(--border); padding: 2rem 2.5rem; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 1rem; }
+.footer-logo { font-family: var(--display); font-size: 1.15rem; letter-spacing: 0.05em; }
+.footer-logo span { color: var(--accent); }
+.footer-note { font-size: 0.7rem; color: var(--muted); font-family: var(--mono); }
+
+@keyframes fadeUp { from{opacity:0;transform:translateY(18px)} to{opacity:1;transform:translateY(0)} }
+@keyframes scrollPulse { 0%,100%{opacity:0.3;transform:scaleY(0.8)} 50%{opacity:1;transform:scaleY(1)} }
+.reveal { opacity:0; transform:translateY(24px); transition:opacity 0.7s ease, transform 0.7s ease; }
+.reveal.in { opacity:1; transform:translateY(0); }
+
+@media(max-width:680px){
+  nav { padding:0.9rem 1.25rem; }
+  .nav-links { display: none; }
+  .feat-grid { grid-template-columns: 1fr; }
+  .steps { grid-template-columns: 1fr; }
+  .pricing-grid { grid-template-columns: 1fr; }
+  .upload-grid { grid-template-columns: 1fr; }
+  .template-grid { grid-template-columns: 1fr 1fr; }
+  .export-opts { grid-template-columns: 1fr; }
+}
+</style>
+</head>
+<body>
+
+<!-- NAV -->
+<nav id="nav">
+  <div class="nav-logo">Snap<span>Diff</span></div>
+  <div class="nav-links">
+    <a href="#features">ฟีเจอร์</a>
+    <a href="#try">ทดลองใช้</a>
+    <a href="#pricing">ราคา</a>
+    <a href="#try" class="nav-cta">เริ่มเลย →</a>
+  </div>
+</nav>
+
+<!-- HERO -->
+<section class="hero">
+  <div class="hero-glow"></div>
+  <div class="hero-tag">BEFORE / AFTER · STORYTELLING TOOL</div>
+  <h1>เล่าเรื่อง<br><span class="accent">ความเปลี่ยนแปลง</span></h1>
+  <p class="hero-sub">ไม่ใช่แค่เปรียบภาพ — แต่คือการเล่าเรื่องความก้าวหน้าที่คนอยากแชร์ ทำงานออฟไลน์ ไม่ต้องสมัครสมาชิก</p>
+  <div class="hero-btns">
+    <a href="#try" class="btn-primary">ทดลองใช้ฟรี →</a>
+    <a href="#features" class="btn-secondary">ดูฟีเจอร์</a>
+  </div>
+  <div class="hero-scroll">
+    <span>SCROLL</span>
+    <div class="scroll-line"></div>
+  </div>
+</section>
+
+<!-- FEATURES -->
+<section class="features" id="features">
+  <div class="section-eyebrow reveal">FEATURES</div>
+  <div class="section-title reveal">สิ่งที่ทำให้<em>แตกต่าง</em></div>
+  <div class="feat-grid reveal">
+    <div class="feat-cell"><div class="feat-num">01</div><div class="feat-title">Progress Timeline Card</div><div class="feat-desc">เรียง 2–5 ช่วงเวลาบน card เดียว พร้อมป้ายวันที่อัตโนมัติ แชร์ได้ทันที</div></div>
+    <div class="feat-cell"><div class="feat-num">02</div><div class="feat-title">Ghost Overlay จัดมุมเป๊ะ</div><div class="feat-desc">ซ้อนภาพเก่าโปร่งแสงบนกล้อง ถ่ายรูปซ้ำตำแหน่งเดิมได้แม่นยำ</div></div>
+    <div class="feat-cell"><div class="feat-num">03</div><div class="feat-title">Project Workspace</div><div class="feat-desc">จัดงานเป็นโปรเจกต์ แต่ละชิ้นมี timeline รูปของตัวเอง ค้นหาง่าย</div></div>
+    <div class="feat-cell"><div class="feat-num">04</div><div class="feat-title">Smart Export Templates</div><div class="feat-desc">รองรับ 1:1, 4:5, 16:9 เหมาะทุก platform ใส่ timestamp ได้ทันที</div></div>
+    <div class="feat-cell"><div class="feat-num">05</div><div class="feat-title">ออฟไลน์ 100%</div><div class="feat-desc">รูปภาพเก็บในเครื่องเท่านั้น ไม่มีการส่งข้อมูลขึ้น server ใดๆ</div></div>
+    <div class="feat-cell"><div class="feat-num">06</div><div class="feat-title">Custom Logo (Pro)</div><div class="feat-desc">ใส่โลโก้ธุรกิจของตัวเองลงใน template ทุกใบ เพื่อความเป็นมืออาชีพ</div></div>
+  </div>
+</section>
+
+<!-- TRY APP -->
+<section class="app-section" id="try">
+  <div class="section-eyebrow reveal">TRY IT NOW</div>
+  <div class="section-title reveal" style="margin-bottom:1rem">ทดลอง<em>ใช้งาน</em></div>
+  <p class="reveal" style="font-size:0.85rem;color:var(--muted2);margin-bottom:2rem;line-height:1.8">อัปโหลดหรือถ่ายรูป Before / After แล้ว export เป็น card ได้เลย ไม่ต้องติดตั้งอะไร</p>
+  <div class="app-card reveal">
+
+    <!-- PROJECT BAR -->
+    <div class="projects-bar">
+      <div class="projects-bar-left" id="proj-chips">
+        <!-- chips render by JS -->
+      </div>
+      <button class="proj-new-btn" onclick="toggleNewProj()">+ โปรเจกต์ใหม่</button>
+    </div>
+    <!-- inline new project input -->
+    <div class="new-proj-row" id="new-proj-row">
+      <input class="new-proj-input" id="new-proj-input" placeholder="ชื่อโปรเจกต์ เช่น คลินิก A / ห้องนอน" maxlength="40"
+        onkeydown="if(event.key==='Enter')confirmNewProj();if(event.key==='Escape')cancelNewProj()">
+      <button class="new-proj-ok" onclick="confirmNewProj()">สร้าง</button>
+      <button class="new-proj-cancel" onclick="cancelNewProj()">ยกเลิก</button>
+    </div>
+
+    <div class="app-tabs">
+      <div class="app-tab active" onclick="switchTab('upload')">01 รูปภาพ</div>
+      <div class="app-tab" onclick="switchTab('export')">02 ตั้งค่า</div>
+      <div class="app-tab" onclick="switchTab('preview')">03 Export</div>
+    </div>
+
+    <!-- UPLOAD -->
+    <div class="tab-panel active" id="panel-upload">
+      <!-- SESSION GALLERY (photos in this project) -->
+      <div id="session-gallery-wrap"></div>
+      <!-- GALLERY ACTIONS -->
+      <div class="gallery-actions" id="gallery-actions" style="display:none">
+        <button class="btn-primary" style="font-size:0.8rem;padding:0.45rem 1.1rem" onclick="useSelectedSession()">ใช้รูปที่เลือก →</button>
+        <button class="btn-secondary" style="font-size:0.8rem;padding:0.45rem 1.1rem" onclick="deleteSelectedSession()">ลบรูปนี้</button>
+        <span class="gallery-hint" id="gallery-hint"></span>
+      </div>
+      <div class="upload-area">
+        <div style="font-size:0.72rem;color:var(--muted);font-family:var(--mono);margin-bottom:0.75rem">เพิ่มรูปใหม่ใน <span id="cur-proj-label" style="color:var(--accent)">—</span></div>
+        <div class="upload-grid">
+
+          <!-- BEFORE SLOT -->
+          <div class="slot-wrap" id="slot-before">
+            <img class="slot-img" id="img-before" alt="before">
+            <div class="slot-placeholder" id="ph-before" onclick="document.getElementById('inp-before').click()">
+              <div class="ph-icon">＋</div>
+              <div class="ph-text">คลิกเพื่อเลือกรูป</div>
+            </div>
+            <div class="slot-footer">
+              <span class="slot-badge badge-before">BEFORE</span>
+              <div class="slot-actions">
+                <button class="slot-btn cam" title="เปิดกล้อง" onclick="openCamera('before')">📷</button>
+                <button class="slot-btn" title="อัปโหลดไฟล์" onclick="document.getElementById('inp-before').click()">🖼</button>
+              </div>
+            </div>
+            <input type="file" accept="image/*" id="inp-before" style="display:none" onchange="loadImg('before',this)">
+          </div>
+
+          <!-- AFTER SLOT -->
+          <div class="slot-wrap" id="slot-after">
+            <img class="slot-img" id="img-after" alt="after">
+            <div class="slot-placeholder" id="ph-after" onclick="document.getElementById('inp-after').click()">
+              <div class="ph-icon">＋</div>
+              <div class="ph-text">คลิกเพื่อเลือกรูป</div>
+            </div>
+            <div class="slot-footer">
+              <span class="slot-badge badge-after">AFTER</span>
+              <div class="slot-actions">
+                <button class="slot-btn cam" title="เปิดกล้อง" onclick="openCamera('after')">📷</button>
+                <button class="slot-btn" title="อัปโหลดไฟล์" onclick="document.getElementById('inp-after').click()">🖼</button>
+              </div>
+            </div>
+            <input type="file" accept="image/*" id="inp-after" style="display:none" onchange="loadImg('after',this)">
+          </div>
+
+        </div>
+        <div class="upload-actions">
+          <button class="btn-primary" onclick="saveSession()">💾 บันทึกในโปรเจกต์</button>
+          <button class="btn-secondary" onclick="goExport()">ข้ามไป Export →</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- EXPORT OPTIONS -->
+    <div class="tab-panel" id="panel-export">
+      <div class="export-area">
+        <div class="export-label">LAYOUT</div>
+        <div class="template-grid">
+          <div class="template-opt selected" onclick="selectTpl(this,'lr')">
+            <div class="template-preview"><div class="tp-half"></div><div class="tp-accent"></div></div>
+            <div class="template-name">ซ้าย–ขวา</div>
+          </div>
+          <div class="template-opt" onclick="selectTpl(this,'tb')">
+            <div class="template-preview tp-col" style="flex-direction:column;gap:2px">
+              <div style="flex:1;background:var(--border2);border-radius:2px"></div>
+              <div style="flex:1;background:rgba(245,96,43,0.3);border-radius:2px"></div>
+            </div>
+            <div class="template-name">บน–ล่าง</div>
+          </div>
+          <div class="template-opt" onclick="selectTpl(this,'focus')">
+            <div class="template-preview"><div class="tp-sm"></div><div class="tp-lg"></div></div>
+            <div class="template-name">Focus After</div>
+          </div>
+        </div>
+
+        <div class="export-opts">
+          <div class="opt-group">
+            <label>หัวข้อ / คำบรรยาย</label>
+            <input type="text" id="opt-title" placeholder="เช่น ผลลัพธ์ 30 วัน">
+          </div>
+          <div class="opt-group">
+            <label>สัดส่วนภาพ</label>
+            <select id="opt-ratio">
+              <option value="1:1">1:1 — Instagram Square</option>
+              <option value="4:5">4:5 — Instagram Portrait</option>
+              <option value="16:9">16:9 — Wide</option>
+            </select>
+          </div>
+          <div class="opt-group">
+            <label>วันที่ Before</label>
+            <input type="text" id="opt-date-before" placeholder="เช่น 1 ม.ค. 2568">
+          </div>
+          <div class="opt-group">
+            <label>วันที่ After</label>
+            <input type="text" id="opt-date-after" placeholder="เช่น 30 ม.ค. 2568">
+          </div>
+        </div>
+        <div style="display:flex;gap:0.75rem;flex-wrap:wrap">
+          <button class="btn-primary" onclick="goPreview()">สร้าง Preview →</button>
+          <button class="btn-secondary" onclick="switchTab('upload')">← ย้อนกลับ</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- PREVIEW -->
+    <div class="tab-panel" id="panel-preview">
+      <div class="preview-area">
+        <div id="canvas-wrap">
+          <div class="empty-canvas" id="empty-msg">
+            <div style="font-size:2rem">🖼</div>
+            <p>กดปุ่ม "สร้าง Preview" ในขั้นตอนก่อนหน้า</p>
+          </div>
+          <canvas id="export-canvas" style="display:none"></canvas>
+        </div>
+        <div class="preview-actions">
+          <button class="btn-primary" onclick="downloadImg()">⬇ ดาวน์โหลด PNG</button>
+          <button class="btn-secondary" onclick="switchTab('export')">← แก้ไข</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- CAMERA MODAL -->
+<div class="modal-overlay" id="cam-modal">
+  <div class="modal-box">
+    <div class="modal-header">
+      <span class="modal-title" id="cam-modal-title">📷 ถ่ายรูป BEFORE</span>
+      <button class="modal-close" onclick="closeCamera()">✕</button>
+    </div>
+    <div class="cam-video-wrap">
+      <video id="cam-video" autoplay playsinline muted></video>
+      <img id="cam-ghost-img" class="cam-overlay-img cam-ghost" alt="">
+    </div>
+    <div class="cam-toolbar">
+      <div class="cam-ghost-ctrl">
+        <label>Ghost</label>
+        <input type="range" id="ghost-slider" min="0" max="80" value="40" oninput="updateGhost(this.value)">
+        <label id="ghost-val">40%</label>
+      </div>
+      <div class="cam-shutter" onclick="takePhoto()"></div>
+      <button class="cam-switch-btn" onclick="switchCamera()">⟳ สลับกล้อง</button>
+    </div>
+    <div id="cam-status">กำลังเปิดกล้อง...</div>
+  </div>
+</div>
+
+<!-- HOW -->
+<section class="how-section">
+  <div class="section-eyebrow reveal">HOW IT WORKS</div>
+  <div class="section-title reveal">ใช้งาน<em>ง่าย</em> 3 ขั้นตอน</div>
+  <div class="steps">
+    <div class="step reveal"><div class="step-num">01</div><div class="step-title">สร้าง Project</div><div class="step-desc">ตั้งชื่อโปรเจกต์ แยกหมวดงานแต่ละชิ้นให้ชัดเจน ไม่ปะปนกัน</div></div>
+    <div class="step reveal" style="transition-delay:0.1s"><div class="step-num">02</div><div class="step-title">ถ่ายรูปด้วย Ghost</div><div class="step-desc">ใช้ Ghost Overlay จัดมุมกล้องให้ตรงกับภาพเดิม ได้มุมเดิมทุกครั้ง</div></div>
+    <div class="step reveal" style="transition-delay:0.2s"><div class="step-num">03</div><div class="step-title">Export และแชร์</div><div class="step-desc">เลือก template ใส่ข้อความ แล้ว export เป็นรูปพร้อมแชร์ทันที</div></div>
+  </div>
+</section>
+
+<!-- PRICING -->
+<section class="pricing-section" id="pricing">
+  <div class="section-eyebrow reveal">PRICING</div>
+  <div class="section-title reveal">เริ่มต้น<em>ฟรี</em></div>
+  <div class="pricing-grid reveal">
+    <div class="price-card">
+      <div class="price-label">FREE</div>
+      <div class="price-val">฿0</div>
+      <ul class="price-items">
+        <li class="ok">5 โปรเจกต์</li>
+        <li class="ok">ถ่ายรูปไม่จำกัด</li>
+        <li class="ok">Ghost Overlay</li>
+        <li class="ok">Export 3 รูป/วัน</li>
+        <li>ลบ watermark</li>
+        <li>Timeline 3–5 ภาพ</li>
+        <li>Custom Logo</li>
+      </ul>
+      <button class="btn-secondary" style="width:100%" onclick="document.getElementById('try').scrollIntoView({behavior:'smooth'})">เริ่มใช้งาน</button>
+    </div>
+    <div class="price-card featured">
+      <div class="price-featured-tag">แนะนำ</div>
+      <div class="price-label">PRO</div>
+      <div class="price-val">฿199<span>/เดือน</span></div>
+      <ul class="price-items">
+        <li class="ok">โปรเจกต์ไม่จำกัด</li>
+        <li class="ok">ถ่ายรูปไม่จำกัด</li>
+        <li class="ok">Ghost Overlay</li>
+        <li class="ok">Export ไม่จำกัด</li>
+        <li class="ok">ลบ watermark</li>
+        <li class="ok">Timeline 3–5 ภาพ</li>
+        <li class="ok">Custom Logo</li>
+      </ul>
+      <button class="btn-primary" style="width:100%;justify-content:center">เร็วๆ นี้</button>
+    </div>
+  </div>
+</section>
+
+<footer>
+  <div class="footer-logo">Snap<span>Diff</span></div>
+  <div class="footer-note">รูปภาพประมวลผลใน browser เท่านั้น · ไม่ส่งขึ้น server</div>
+</footer>
+
+<script>
+/* ════════════════════════════════════════════
+   PROJECT FOLDER SYSTEM
+   ════════════════════════════════════════════ */
+
+const DB_KEY = 'snapdiff_projects';
+let projects = [];      // [{id, name, sessions:[{id,beforeSrc,afterSrc,date,label}]}]
+let activeProjectId = null;
+let selectedSessionId = null;
+
+function loadDB(){
+  try { projects = JSON.parse(localStorage.getItem(DB_KEY))||[]; } catch{ projects=[]; }
+  if(!projects.length){ createProject('โปรเจกต์แรก'); return; }
+  activeProjectId = projects[0].id;
+  renderProjChips();
+  renderGallery();
+}
+function saveDB(){ localStorage.setItem(DB_KEY, JSON.stringify(projects)); }
+
+/* ── Project CRUD ── */
+function createProject(name){
+  const p = { id: Date.now()+'', name, sessions:[] };
+  projects.push(p);
+  activeProjectId = p.id;
+  saveDB();
+  renderProjChips();
+  renderGallery();
+}
+function deleteProject(id){
+  if(projects.length<=1){ alert('ต้องมีอย่างน้อย 1 โปรเจกต์ครับ'); return; }
+  if(!confirm('ลบโปรเจกต์นี้และรูปทั้งหมดในนั้น?')) return;
+  projects = projects.filter(p=>p.id!==id);
+  if(activeProjectId===id) activeProjectId=projects[0].id;
+  saveDB(); renderProjChips(); renderGallery();
+}
+function activeProject(){ return projects.find(p=>p.id===activeProjectId)||projects[0]; }
+
+/* ── Session (Before/After pair) CRUD ── */
+function saveSession(){
+  if(!imgs.before && !imgs.after){ alert('ยังไม่มีรูปครับ — เพิ่มรูป Before หรือ After ก่อน'); return; }
+  const p = activeProject();
+  const label = document.getElementById('opt-title').value || ('Session '+(p.sessions.length+1));
+  const date  = new Date().toLocaleDateString('th-TH',{day:'numeric',month:'short',year:'2-digit'});
+  const sess = {
+    id: Date.now()+'',
+    label,
+    date,
+    beforeSrc: imgs.before ? imgs.before.src : null,
+    afterSrc:  imgs.after  ? imgs.after.src  : null,
+  };
+  p.sessions.push(sess);
+  saveDB();
+  renderGallery();
+  showToast('บันทึกแล้ว — "'+label+'"');
+}
+function deleteSelectedSession(){
+  if(!selectedSessionId) return;
+  const p = activeProject();
+  if(!confirm('ลบรูปคู่นี้ออกจากโปรเจกต์?')) return;
+  p.sessions = p.sessions.filter(s=>s.id!==selectedSessionId);
+  selectedSessionId=null;
+  saveDB(); renderGallery();
+  document.getElementById('gallery-actions').style.display='none';
+}
+function useSelectedSession(){
+  const p = activeProject();
+  const s = p.sessions.find(ss=>ss.id===selectedSessionId);
+  if(!s) return;
+  if(s.beforeSrc) setImg('before', s.beforeSrc);
+  if(s.afterSrc)  setImg('after',  s.afterSrc);
+  document.getElementById('opt-title').value = s.label;
+  showToast('โหลดรูปแล้ว — ไปตั้งค่า export ได้เลย');
+}
+
+/* ── Render chips ── */
+function renderProjChips(){
+  const wrap = document.getElementById('proj-chips');
+  wrap.innerHTML = projects.map(p=>`
+    <div class="proj-chip ${p.id===activeProjectId?'active':''}" onclick="switchProject('${p.id}')">
+      <span>${escHtml(p.name)}</span>
+      <span class="proj-count">${p.sessions.length}</span>
+      ${projects.length>1?`<button class="proj-del" onclick="event.stopPropagation();deleteProject('${p.id}')" title="ลบ">✕</button>`:''}
+    </div>
+  `).join('');
+}
+
+/* ── Render gallery ── */
+function renderGallery(){
+  const p = activeProject();
+  document.getElementById('cur-proj-label').textContent = p.name;
+  const wrap = document.getElementById('session-gallery-wrap');
+  if(!p.sessions.length){
+    wrap.innerHTML = `<div class="proj-empty">📂 ยังไม่มีรูปในโปรเจกต์นี้<p>เพิ่มรูป Before / After แล้วกด "บันทึกในโปรเจกต์"</p></div>`;
+    document.getElementById('gallery-actions').style.display='none';
+    return;
+  }
+  wrap.innerHTML = `<div class="session-gallery">${
+    p.sessions.map(s=>{
+      const cover = s.afterSrc||s.beforeSrc||'';
+      return `<div class="session-thumb ${s.id===selectedSessionId?'sel':''}" onclick="selectSession('${s.id}')">
+        <img src="${cover}" alt="${escHtml(s.label)}">
+        <div class="s-foot">
+          <span>${escHtml(s.label)}</span>
+          <div style="display:flex;gap:2px">
+            ${s.beforeSrc?'<span class="s-badge sb-b">B</span>':''}
+            ${s.afterSrc?'<span class="s-badge sb-a">A</span>':''}
+          </div>
+        </div>
+      </div>`;
+    }).join('')
+  }</div>`;
+}
+
+function selectSession(id){
+  selectedSessionId = selectedSessionId===id ? null : id;
+  const p = activeProject();
+  const s = p.sessions.find(ss=>ss.id===id);
+  const ga = document.getElementById('gallery-actions');
+  if(selectedSessionId && s){
+    ga.style.display='flex';
+    document.getElementById('gallery-hint').textContent = s.label+' · '+s.date;
+  } else { ga.style.display='none'; }
+  renderGallery();
+}
+
+function switchProject(id){
+  activeProjectId=id; selectedSessionId=null;
+  renderProjChips(); renderGallery();
+  document.getElementById('gallery-actions').style.display='none';
+}
+
+/* ── New project dialog ── */
+function toggleNewProj(){
+  const row=document.getElementById('new-proj-row');
+  row.classList.toggle('open');
+  if(row.classList.contains('open')) setTimeout(()=>document.getElementById('new-proj-input').focus(),50);
+}
+function confirmNewProj(){
+  const inp=document.getElementById('new-proj-input');
+  const name=inp.value.trim();
+  if(!name){ inp.focus(); return; }
+  if(projects.length>=5){ alert('Free plan: สร้างได้สูงสุด 5 โปรเจกต์ครับ'); return; }
+  createProject(name);
+  inp.value='';
+  cancelNewProj();
+}
+function cancelNewProj(){
+  document.getElementById('new-proj-row').classList.remove('open');
+  document.getElementById('new-proj-input').value='';
+}
+
+/* ── Toast ── */
+function showToast(msg){
+  let t=document.getElementById('sd-toast');
+  if(!t){
+    t=document.createElement('div'); t.id='sd-toast';
+    t.style.cssText='position:fixed;bottom:1.5rem;left:50%;transform:translateX(-50%);background:#f5602b;color:#fff;padding:0.55rem 1.25rem;border-radius:6px;font-size:0.82rem;z-index:9998;opacity:0;transition:opacity 0.25s;font-family:'+getComputedStyle(document.body).fontFamily;
+    document.body.appendChild(t);
+  }
+  t.textContent=msg; t.style.opacity='1';
+  clearTimeout(t._t); t._t=setTimeout(()=>t.style.opacity='0',2500);
+}
+
+function escHtml(s){ return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+
+/* init */
+loadDB();
+</script>
+
+<script>
+/* ── NAV ── */
+window.addEventListener('scroll',()=>{ document.getElementById('nav').classList.toggle('scrolled',scrollY>40); });
+
+/* ── REVEAL ── */
+const obs = new IntersectionObserver(es=>es.forEach(e=>{ if(e.isIntersecting) e.target.classList.add('in'); }),{threshold:0.1});
+document.querySelectorAll('.reveal').forEach(el=>obs.observe(el));
+
+/* ── TABS ── */
+function switchTab(name){
+  document.querySelectorAll('.tab-panel').forEach(p=>p.classList.remove('active'));
+  document.querySelectorAll('.app-tab').forEach(t=>t.classList.remove('active'));
+  document.getElementById('panel-'+name).classList.add('active');
+  const idx = {upload:0,export:1,preview:2}[name];
+  document.querySelectorAll('.app-tab')[idx].classList.add('active');
+}
+
+/* ── IMAGES ── */
+const imgs = {};
+function loadImg(side, inp){
+  if(!inp.files[0]) return;
+  const reader = new FileReader();
+  reader.onload = e => setImg(side, e.target.result);
+  reader.readAsDataURL(inp.files[0]);
+}
+function setImg(side, src){
+  const imgEl = document.getElementById('img-'+side);
+  const slot  = document.getElementById('slot-'+side);
+  const ph    = document.getElementById('ph-'+side);
+
+  const tmp = new Image();
+  tmp.onload = function(){
+    // resize slot to match image natural ratio, max 320px tall
+    const ratio = this.naturalWidth / this.naturalHeight;
+    const slotW = slot.offsetWidth || 340;
+    const slotH = Math.min(320, Math.round(slotW / ratio));
+    slot.style.height = slotH + 'px';
+    slot.style.minHeight = slotH + 'px';
+
+    imgEl.src = src;
+    imgEl.style.display = 'block';
+    if(ph) ph.style.display = 'none';
+
+    // store for canvas
+    imgs[side] = tmp;
+
+    // update ghost
+    if(side==='before'){
+      const g = document.getElementById('cam-ghost-img');
+      if(g) g.src = src;
+    }
+  };
+  tmp.src = src;
+}
+
+/* ── TEMPLATE ── */
+let tpl = 'lr';
+function selectTpl(el, t){ document.querySelectorAll('.template-opt').forEach(o=>o.classList.remove('selected')); el.classList.add('selected'); tpl=t; }
+
+/* ── NAVIGATE ── */
+function goExport(){ if(!imgs.before&&!imgs.after){ alert('กรุณาเลือกรูปอย่างน้อย 1 ใบก่อนครับ'); return; } switchTab('export'); }
+function goPreview(){ if(!imgs.before&&!imgs.after){ alert('กรุณาอัปโหลดรูปก่อนครับ'); switchTab('upload'); return; } switchTab('preview'); setTimeout(renderCanvas,80); }
+
+/* ── CANVAS RENDER ── */
+function renderCanvas(){
+  const canvas = document.getElementById('export-canvas');
+  const ctx = canvas.getContext('2d');
+  const ratioMap = {'1:1':[1080,1080],'4:5':[1080,1350],'16:9':[1920,1080]};
+  const [W,H] = ratioMap[document.getElementById('opt-ratio').value]||[1080,1080];
+  canvas.width=W; canvas.height=H;
+  canvas.style.display='block';
+  document.getElementById('empty-msg').style.display='none';
+
+  const title = document.getElementById('opt-title').value||'Before / After';
+  const dB = document.getElementById('opt-date-before').value;
+  const dA = document.getElementById('opt-date-after').value;
+  const PAD=Math.round(W*0.044), TITLE_H=Math.round(W*0.088);
+
+  // ── BG: dark with dot grid ──
+  ctx.fillStyle='#08080a'; ctx.fillRect(0,0,W,H);
+  ctx.fillStyle='rgba(255,255,255,0.022)';
+  for(let gx=0;gx<W;gx+=44) for(let gy=0;gy<H;gy+=44){
+    ctx.beginPath(); ctx.arc(gx,gy,1.2,0,Math.PI*2); ctx.fill();
+  }
+
+  // ── TITLE BAR ──
+  ctx.fillStyle='rgba(255,255,255,0.04)';
+  ctx.fillRect(0,0,W,TITLE_H);
+  // left accent bar
+  ctx.fillStyle='#f5602b';
+  ctx.fillRect(0,0,Math.round(W*0.008),TITLE_H);
+  // bottom rule
+  ctx.strokeStyle='rgba(245,96,43,0.3)'; ctx.lineWidth=1;
+  ctx.beginPath(); ctx.moveTo(0,TITLE_H); ctx.lineTo(W,TITLE_H); ctx.stroke();
+  // title text centered
+  ctx.fillStyle='#ede9e1'; ctx.textAlign='center'; ctx.textBaseline='middle';
+  ctx.font=`600 ${Math.round(W*0.034)}px Noto Sans Thai, sans-serif`;
+  ctx.fillText(title, W/2, TITLE_H/2);
+  // SnapDiff watermark inside title bar top-right
+  ctx.fillStyle='rgba(245,96,43,0.55)';
+  ctx.font=`500 ${Math.round(W*0.013)}px IBM Plex Mono, monospace`;
+  ctx.textAlign='right'; ctx.fillText('SnapDiff', W-PAD, TITLE_H/2);
+
+  const imgY = TITLE_H + Math.round(W*0.026);
+  const imgH = H - imgY - Math.round(W*0.032);
+
+  // ── helper: draw image with contain (no crop) ──
+  function drawImg(imgObj, x, y, w, h){
+    ctx.save();
+    roundRect(ctx, x, y, w, h, 12); ctx.clip();
+    ctx.fillStyle = '#080809'; ctx.fillRect(x, y, w, h);
+    if(!imgObj){ ctx.restore(); return; }
+    const iR = imgObj.naturalWidth / imgObj.naturalHeight, cR = w / h;
+    let dw, dh, dx, dy;
+    if(iR > cR){ dw=w; dh=w/iR; dx=x; dy=y+(h-dh)/2; }
+    else        { dh=h; dw=h*iR; dy=y; dx=x+(w-dw)/2; }
+    ctx.drawImage(imgObj, 0, 0, imgObj.naturalWidth, imgObj.naturalHeight, dx, dy, dw, dh);
+    ctx.restore();
+  }
+
+  // ── helper: draw bottom overlay (scrim + badge + date, no overlap) ──
+  function drawOverlay(label, date, x, y, w, h, isAfter){
+    // gradient scrim — bottom 40% of image
+    ctx.save();
+    roundRect(ctx, x, y, w, h, 12); ctx.clip();
+    const g = ctx.createLinearGradient(x, y+h*0.6, x, y+h);
+    g.addColorStop(0,'rgba(0,0,0,0)');
+    g.addColorStop(1,'rgba(0,0,0,0.88)');
+    ctx.fillStyle=g; ctx.fillRect(x, y, w, h);
+    ctx.restore();
+
+    const BADGE_FS   = Math.max(18, Math.round(W * 0.016));
+    const DATE_FS    = Math.max(14, Math.round(W * 0.012));
+    const BADGE_H    = BADGE_FS + 16;
+    const DATE_H     = DATE_FS + 8;
+    const STACK_GAP  = 10;   // gap between date and badge
+    const BOTTOM_PAD = Math.round(W * 0.022);
+
+    // positions — date is lowest, badge sits above it
+    const dateBottom = y + h - BOTTOM_PAD;          // baseline of date text
+    const dateTop    = dateBottom - DATE_FS;
+    const badgeBot   = dateTop - STACK_GAP;          // bottom of badge
+    const badgeTop   = badgeBot - BADGE_H;
+    const BX         = x + Math.round(W * 0.016);   // left margin inside image
+
+    // badge
+    ctx.font = `700 ${BADGE_FS}px IBM Plex Mono, monospace`;
+    const labelW = ctx.measureText(label).width;
+    const bw = labelW + BADGE_FS;
+    ctx.fillStyle = isAfter ? '#f5602b' : 'rgba(14,14,16,0.9)';
+    if(isAfter){
+      // glowing orange badge
+      ctx.shadowColor = 'rgba(245,96,43,0.6)'; ctx.shadowBlur = 18;
+    }
+    roundRect(ctx, BX, badgeTop, bw, BADGE_H, 6); ctx.fill();
+    ctx.shadowBlur = 0;
+
+    ctx.fillStyle = '#fff';
+    ctx.textAlign = 'left'; ctx.textBaseline = 'middle';
+    ctx.fillText(label, BX + BADGE_FS*0.5, badgeTop + BADGE_H/2);
+
+    // date — only if provided
+    if(date){
+      ctx.font = `400 ${DATE_FS}px Noto Sans Thai, sans-serif`;
+      ctx.fillStyle = 'rgba(255,255,255,0.6)';
+      ctx.textBaseline = 'alphabetic';
+      ctx.fillText(date, BX, dateBottom);
+    }
+  }
+
+  // ── layout ──
+  const GAP = Math.round(W * 0.018);
+
+  if(tpl === 'lr'){
+    const iw = Math.round((W - PAD*2 - GAP) / 2);
+    const ix1 = PAD, ix2 = PAD + iw + GAP;
+    drawImg(imgs.before, ix1, imgY, iw, imgH);
+    drawImg(imgs.after,  ix2, imgY, iw, imgH);
+    drawOverlay('BEFORE', dB, ix1, imgY, iw, imgH, false);
+    drawOverlay('AFTER',  dA, ix2, imgY, iw, imgH, true);
+    // orange divider line
+    ctx.strokeStyle='rgba(245,96,43,0.5)'; ctx.lineWidth=2;
+    const mx = ix1+iw+GAP/2;
+    ctx.beginPath(); ctx.moveTo(mx, imgY+16); ctx.lineTo(mx, imgY+imgH-16); ctx.stroke();
+
+  } else if(tpl === 'tb'){
+    const ih = Math.round((imgH - GAP) / 2);
+    const iy1 = imgY, iy2 = imgY + ih + GAP;
+    drawImg(imgs.before, PAD, iy1, W-PAD*2, ih);
+    drawImg(imgs.after,  PAD, iy2, W-PAD*2, ih);
+    drawOverlay('BEFORE', dB, PAD, iy1, W-PAD*2, ih, false);
+    drawOverlay('AFTER',  dA, PAD, iy2, W-PAD*2, ih, true);
+
+  } else { // focus after
+    const iw1 = Math.round((W-PAD*2-GAP)*0.36);
+    const iw2 = W - PAD*2 - GAP - iw1;
+    drawImg(imgs.before, PAD,       imgY, iw1, imgH);
+    drawImg(imgs.after,  PAD+iw1+GAP, imgY, iw2, imgH);
+    drawOverlay('BEFORE', dB, PAD,       imgY, iw1, imgH, false);
+    drawOverlay('AFTER',  dA, PAD+iw1+GAP, imgY, iw2, imgH, true);
+  }
+
+  // ── accent stripe at top of image area ──
+  ctx.fillStyle='rgba(245,96,43,0.7)';
+  ctx.fillRect(PAD, imgY-4, W-PAD*2, 3);
+
+  // ── watermark bottom-right ──
+  const wmFS = Math.round(W*0.011);
+  ctx.font=`500 ${wmFS}px IBM Plex Mono, monospace`;
+  ctx.fillStyle='rgba(255,255,255,0.18)';
+  ctx.textAlign='right'; ctx.textBaseline='bottom';
+  ctx.fillText('SnapDiff', W-PAD, H-Math.round(W*0.016));
+}
+
+function roundRect(ctx,x,y,w,h,r){
+  ctx.beginPath();
+  ctx.moveTo(x+r,y);ctx.lineTo(x+w-r,y);ctx.quadraticCurveTo(x+w,y,x+w,y+r);
+  ctx.lineTo(x+w,y+h-r);ctx.quadraticCurveTo(x+w,y+h,x+w-r,y+h);
+  ctx.lineTo(x+r,y+h);ctx.quadraticCurveTo(x,y+h,x,y+h-r);
+  ctx.lineTo(x,y+r);ctx.quadraticCurveTo(x,y,x+r,y);
+  ctx.closePath();
+}
+
+function downloadImg(){
+  const canvas=document.getElementById('export-canvas');
+  if(canvas.style.display==='none'){alert('กรุณาสร้าง preview ก่อนครับ');return;}
+  const a=document.createElement('a'); a.download='snapdiff.png'; a.href=canvas.toDataURL('image/png'); a.click();
+}
+
+/* ── CAMERA ── */
+let stream=null, facingMode='environment', camTarget='before';
+
+function openCamera(side){
+  camTarget = side;
+  document.getElementById('cam-modal-title').textContent = '📷 ถ่ายรูป '+(side==='before'?'BEFORE':'AFTER');
+  // show ghost if before image exists and capturing after
+  const ghostImg = document.getElementById('cam-ghost-img');
+  if(side==='after' && imgs.before){
+    ghostImg.src=imgs.before.src;
+    ghostImg.style.display='block';
+    updateGhost(document.getElementById('ghost-slider').value);
+  } else { ghostImg.style.display='none'; }
+  document.getElementById('cam-modal').classList.add('open');
+  startStream();
+}
+
+async function startStream(){
+  const status=document.getElementById('cam-status');
+  status.textContent='กำลังเปิดกล้อง...';
+  try {
+    if(stream){ stream.getTracks().forEach(t=>t.stop()); }
+    stream = await navigator.mediaDevices.getUserMedia({video:{facingMode,width:{ideal:1920},height:{ideal:1080}},audio:false});
+    document.getElementById('cam-video').srcObject=stream;
+    status.textContent='กล้องพร้อม — กดปุ่มกลมเพื่อถ่าย';
+  } catch(e){
+    status.textContent='ไม่สามารถเปิดกล้องได้: '+e.message;
+  }
+}
+
+function switchCamera(){
+  facingMode = facingMode==='environment'?'user':'environment';
+  startStream();
+}
+
+function updateGhost(val){
+  document.getElementById('ghost-val').textContent=val+'%';
+  document.getElementById('cam-ghost-img').style.opacity=val/100;
+}
+
+function takePhoto(){
+  const video=document.getElementById('cam-video');
+  const c=document.createElement('canvas');
+  c.width=video.videoWidth||1280; c.height=video.videoHeight||720;
+  c.getContext('2d').drawImage(video,0,0);
+  const dataUrl=c.toDataURL('image/jpeg',0.92);
+  setImg(camTarget, dataUrl);
+  closeCamera();
+  // move to next slot automatically
+  if(camTarget==='before' && !imgs.after){
+    setTimeout(()=>openCamera('after'),300);
+  }
+}
+
+function closeCamera(){
+  if(stream){ stream.getTracks().forEach(t=>t.stop()); stream=null; }
+  document.getElementById('cam-modal').classList.remove('open');
+}
+
+// close modal on backdrop click
+document.getElementById('cam-modal').addEventListener('click',function(e){ if(e.target===this) closeCamera(); });
+</script>
+</body>
+</html>
